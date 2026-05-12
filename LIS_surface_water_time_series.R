@@ -5,7 +5,7 @@ library(dplyr)
 library(readr)
 
 mycsv <- "/Users/calderraio/Documents/Lab-documents/4-senior/3-spring-2026/env-chem/final-project/csv/LIS_DEEP_full.csv"
-png_directory <- "/Users/calderraio/Documents/Lab-documents/4-senior/3-spring-2026/env-chem/final-project/analysis/plots/surface-waters"
+png_directory <- "/Users/calderraio/Documents/Lab-documents/4-senior/3-spring-2026/env-chem/final-project/analysis/plots/surface-waters/trendline"
 
 df <- read_csv(mycsv, show_col_types=FALSE)
 
@@ -17,6 +17,9 @@ plot_one_var <- function(var_name) {
 
   p <- ggplot(subset, aes(x = ActivityStartDate, y = ResultMeasureValue)) +
     geom_point(size = 0.8, alpha = 0.7) +
+    geom_smooth(method = "lm",        # Linear model
+              se = FALSE,             # Rm ribbon std error
+              color = "red")+
     labs(
       title = paste(var_name, "from 2008-2024"),
       x = "Date",

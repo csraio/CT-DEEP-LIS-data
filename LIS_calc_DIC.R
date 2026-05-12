@@ -31,12 +31,25 @@ calc_mu <- function(salinity) {
     mu <- salinity*(2.5e-5)
 }
 
+pivot_table <- df %>%
+    # Only pH has non-NA depth values. We only want to look at surface water, so exclude all pH readings deeper than 2.05m:
+    filter(!(CharacteristicName == "pH" & `ActivityDepthHeightMeasure/MeasureValue` > 2.05))%>%
+    select(ActivityStartDate, CharacteristicName, ResultMeasureValue)%>%
+    filter(CharacteristicName %in% c("pH", "Alkalinity", "Inorganic carbon", "Salinity", "Temperature", "Pressure"))%>%
+    pivot_wider(
+        names_from = CharacteristicName,
+        values_from = ResultMeasureValue,
+        values_fn = list(ResultMeasureValue = mean) #Averages list cols wherein multiple measurements were taken on the same day
+    )%>%
+    #Create a new column called "DIC" (dissolved inorganic carbon)
+    mutate(DIC = calc_dic(pH, Alkalinity))
+
 
 # 1. Calculate Density (rho) using the GSW Pakcage (Gibbs SeaWater Oceanographic Toolbox)
 rho_kg_m3 <- gsw_rho(SA = pivot_table$Salinity, CT = pivot_table$Temperature, p = pivot_table$Pressure*0.689476) # convert psi to decibar
 rho_g_cm3 <- rho_kg_m3/1000
 
-# 2. Calculate Ionic Strength (mu) using the Millero Equation
+# 2. Calculate Ionic Strength (mu) using the Millero Equation (Millero & Leung, 1976) https://doi.org/10.2475/ajs.276.9.1035
 # The linear TDS approximation (2e-5 * TDS) is not good enough for seawater
 mu <- (19.92*pivot_table$Salinity)/(1000 - 1.005*pivot_table$Salinity)*rho_g_cm3
 
@@ -66,19 +79,7 @@ calc_dic_nonideal <- function(pH, alk) {
     return(dic)
 }
 
-pivot_table <- df %>%
-    # Only pH has non-NA depth values. We only want to look at surface water, so exclude all pH readings deeper than 2.05m:
-    filter(!(CharacteristicName == "pH" & `ActivityDepthHeightMeasure/MeasureValue` > 2.05))%>%
-    select(ActivityStartDate, CharacteristicName, ResultMeasureValue)%>%
-    filter(CharacteristicName %in% c("pH", "Alkalinity", "Inorganic carbon", "Salinity", "Temperature", "Pressure"))%>%
-    pivot_wider(
-        names_from = CharacteristicName,
-        values_from = ResultMeasureValue,
-        values_fn = list(ResultMeasureValue = mean) #Averages list cols wherein multiple measurements were taken on the same day
-    )%>%
-    #Create a new column called "DIC" (dissolved inorganic carbon)
-    mutate(DIC = calc_dic(pH, Alkalinity))%>%
-    mutate(DIC_nonideal = calc_dic_nonideal(pH, Alkalinity))
+pivot_table <- pivot_table %>% mutate(DIC_nonideal = calc_dic_nonideal(pH, Alkalinity))
 
 plot_DIC <- function(d) {
 # 1. Reshape the data so DIC and Inorganic carbon are both in the same column
